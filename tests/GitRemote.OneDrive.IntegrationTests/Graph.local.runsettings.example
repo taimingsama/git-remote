@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RunSettings>
+  <RunConfiguration>
+    <EnvironmentVariables>
+      <!-- 在本地副本中取消下一行的注释，再填入测试账号的 Graph 访问令牌。 -->
+      <!-- <ONEDRIVE_TEST_ACCESS_TOKEN>your-access-token</ONEDRIVE_TEST_ACCESS_TOKEN> -->
+    </EnvironmentVariables>
+  </RunConfiguration>
+</RunSettings>

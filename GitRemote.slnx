@@ -1,1 +1,8 @@
-<Solution />
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/GitRemote.OneDrive/GitRemote.OneDrive.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/GitRemote.OneDrive.IntegrationTests/GitRemote.OneDrive.IntegrationTests.csproj" />
+  </Folder>
+</Solution>

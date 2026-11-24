@@ -1,6 +1,6 @@
 # GitRemote.OneDrive 会话总结
 
-本次会话确定了用微软 OneDrive 存放原生 Git 裸仓库的战略设计，并建立了 .NET 项目骨架和 Microsoft Graph 验证项目。当前可运行的是 Graph 集成测试。Git remote helper 的实现仍待开始。
+本次会话确定了用微软 OneDrive 存放原生 Git 裸仓库的战略设计，并建立了 .NET 项目骨架和 Microsoft Graph 验证项目。后续的独立原型已在本地和个人 OneDrive 上验证首次推送和克隆，分支发布功能集中在原型的推送流程。 [原型及验收](gitremote-onedrive-prototype.md)
 
 ## 已确定的设计
 
@@ -27,5 +27,5 @@
 
 ## 待验证事项
 
-- 运行四个真实 OneDrive 集成测试，记录目标账号的状态码和回读结果。当前的条件写入用例探测小文件 `PUT /content` 的 `If-Match` 行为。该端点的文档没有列出此请求头，真实服务结果决定它能否用作 `packed-refs` 的发布点。 [Microsoft Graph 小文件上传文档](https://learn.microsoft.com/en-us/graph/api/driveitem-put-content?view=graph-rest-1.0)
+- 用户已在目标账号上确认四个真实 OneDrive 集成测试通过。后续端到端验收也已在个人 OneDrive 上完成首次条件发布和克隆。小文件 `PUT /content` 文档未列出 `If-Match`，正式实现仍以集成测试跟踪目标服务的行为。 [Microsoft Graph 小文件上传文档](https://learn.microsoft.com/en-us/graph/api/driveitem-put-content?view=graph-rest-1.0)
 - 处理测试依赖的 NuGet 审计警告。当前 SDK 的间接依赖 `Microsoft.Kiota.Abstractions` 1.21.1 触发 `NU1903`。 [安全公告](https://github.com/advisories/GHSA-7j59-v9qr-6fq9)

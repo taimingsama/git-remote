@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -385,9 +386,11 @@ internal sealed class OneDriveStorage(HttpClient http, Func<bool, CancellationTo
         throw new IOException("OneDrive returned an invalid transfer URL.");
     }
 
+    internal static bool IsUsableETag([NotNullWhen(true)] string? etag) =>
+        !string.IsNullOrWhiteSpace(etag) && etag != "*" && !etag.Any(char.IsControl);
+
     private static string RequireETag(string? etag) =>
-        !string.IsNullOrWhiteSpace(etag) && etag != "*" && !etag.Any(char.IsControl)
-            ? etag : throw new IOException("OneDrive did not return a usable item ETag.");
+        IsUsableETag(etag) ? etag : throw new IOException("OneDrive did not return a usable item ETag.");
 
     private string DrivePath(string relative) => "drives/" + Uri.EscapeDataString(DriveId) + "/" + relative;
     private string Item(string id) => DrivePath("items/" + Uri.EscapeDataString(id));

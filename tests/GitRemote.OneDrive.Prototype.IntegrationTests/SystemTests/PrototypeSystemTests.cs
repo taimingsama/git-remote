@@ -132,6 +132,39 @@ public sealed class PrototypeSystemTests
     }
 
     [Fact]
+    public async Task DirectPush_UpToDateBranchDoesNotRegisterAnOperation()
+    {
+        await using var graph = await GraphFixture.StartAsync(Cancellation);
+        using var client = new PrototypeClient(graph);
+        var url = await client.GitAsync("onedrive", "init", "repo");
+        await client.InitSourceAsync();
+        await client.CommitAsync("first");
+        await client.GitAsync("-C", client.Source, "push", url, "main");
+        var before = graph.Calls.Length;
+
+        await client.GitAsync("-C", client.Source, "push", url, "main");
+
+        Assert.DoesNotContain(graph.Calls.Skip(before), call => call.Name == "state.json");
+    }
+
+    [Fact]
+    public async Task DirectPush_ReadsCoordinationStateOnceWithoutContention()
+    {
+        await using var graph = await GraphFixture.StartAsync(Cancellation);
+        using var client = new PrototypeClient(graph);
+        var url = await client.GitAsync("onedrive", "init", "repo");
+        await client.InitSourceAsync();
+        await client.CommitAsync("first");
+        await client.GitAsync("-C", client.Source, "push", url, "main");
+        await client.CommitAsync("second");
+        var before = graph.Calls.Length;
+
+        await client.GitAsync("-C", client.Source, "push", url, "main");
+
+        Assert.Equal(3, graph.Calls.Skip(before).Count(call => call.Method == "GET" && call.Name == "state.json"));
+    }
+
+    [Fact]
     public async Task AtomicAndLeaseRejections_PreserveOfficialRefState()
     {
         await using var graph = await GraphFixture.StartAsync(Cancellation);

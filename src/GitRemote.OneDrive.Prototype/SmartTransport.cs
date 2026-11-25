@@ -47,7 +47,7 @@ internal sealed class SmartTransport(OneDriveRepository repository, PackStore pa
             arguments.AddRange(["-c", "core.hooksPath=" + hookDirectory, "-c", "receive.procReceiveRefs=refs",
                 "-c", "receive.advertisePushOptions=true", "-c", "receive.autogc=false",
                 "-c", "receive.certNonceSeed=" + Convert.ToHexString(RandomNumberGenerator.GetBytes(32))]);
-            hook = ServeHookAsync(pipeName, git, snapshot.Refs, session, hookCancellation.Token);
+            hook = ServeHookAsync(pipeName, git, session, hookCancellation.Token);
         }
         if (service == "git-upload-pack")
             AddUploadOptions(arguments);
@@ -142,7 +142,7 @@ internal sealed class SmartTransport(OneDriveRepository repository, PackStore pa
         args.AddRange(["-c", "uploadpack.allowFilter=true", "-c", "uploadpack.allowReachableSHA1InWant=true",
             "-c", "uploadpack.allowAnySHA1InWant=true", "-c", "transfer.advertiseObjectInfo=true"]);
 
-    private async Task ServeHookAsync(string pipeName, Git git, PackedRefs advertised, RepositorySession session, CancellationToken cancellation)
+    private async Task ServeHookAsync(string pipeName, Git git, RepositorySession session, CancellationToken cancellation)
     {
         using var pipe = new NamedPipeServerStream(pipeName, PipeDirection.InOut, 1, PipeTransmissionMode.Byte,
             PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
@@ -184,7 +184,7 @@ internal sealed class SmartTransport(OneDriveRepository repository, PackStore pa
         {
             while (await Packet.ReadTextAsync(pipe, cancellation) is { Length: > 0 }) { }
         }
-        var statuses = await service.PublishAsync(changes, advertised, session, atomic, dryRun: false);
+        var statuses = await service.PublishAsync(changes, session, atomic, dryRun: false);
         foreach (var status in statuses)
             await Packet.WriteAsync(pipe, status.Error is null
                 ? $"ok {status.Name}\n" : $"ng {status.Name} {status.Error}\n", cancellation);

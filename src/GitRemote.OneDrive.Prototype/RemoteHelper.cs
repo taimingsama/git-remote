@@ -102,7 +102,8 @@ internal sealed class RemoteHelper(OneDriveRepository repository, Stream input, 
                 {
                     if (needsNativeRead)
                         throw new IOException("The negotiated transport did not connect to native Git. Use ?transport=smart.");
-                    session ??= await _coordinator.EnterAsync(line == "list" ? "read" : "push");
+                    if (line == "list")
+                        session ??= await _coordinator.EnterAsync("read");
                     advertised = prepared ?? (await repository.ReadRefsAsync()).Refs;
                     prepared = null;
                     var refs = new StringBuilder();
@@ -143,15 +144,17 @@ internal sealed class RemoteHelper(OneDriveRepository repository, Stream input, 
                 }
                 else if (line.StartsWith("push ", StringComparison.Ordinal))
                 {
-                    RequireSnapshot(session, advertised);
+                    if (advertised is null)
+                        throw new IOException("Git must list references before fetching or pushing.");
+                    session ??= await _coordinator.EnterAsync("push");
                     await new FetchService(repository, _packs, _git).EnsureObjectFormatAsync();
                     if (await _git.CheckedAsync(["rev-parse", "--is-shallow-repository"]) == "true")
                         throw new IOException("Use ?transport=smart when pushing from a shallow repository.");
                     var service = new PushService(repository, _packs, _git);
                     var changes = new List<PushUpdate>();
                     foreach (var request in await ReadBatchAsync(line, "push "))
-                        changes.Add(await service.ResolveAsync(advertised!, request, _leases));
-                    var result = await service.PublishAsync(changes, advertised!, session!, atomic, dryRun);
+                        changes.Add(await service.ResolveAsync(advertised, request, _leases));
+                    var result = await service.PublishAsync(changes, session, atomic, dryRun);
                     var statuses = result.DistinctBy(status => status.Name)
                         .Select(status => status.Error is null ? "ok " + status.Name : "error " + status.Name + " " + status.Error);
                     await SendAsync(string.Join('\n', statuses) + "\n\n");

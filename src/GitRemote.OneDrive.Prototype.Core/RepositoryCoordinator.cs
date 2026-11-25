@@ -16,6 +16,8 @@ internal sealed record RepositoryState(Dictionary<string, RepositoryOperation> O
 
 internal sealed class RepositoryCoordinator(OneDriveRepository repository)
 {
+    private (DriveItem Item, byte[] Bytes)? _lastWrite;
+
     internal async Task<RepositorySession> EnterAsync(string kind)
     {
         var operation = new RepositoryOperation(Guid.NewGuid().ToString("N"), Environment.MachineName,
@@ -30,7 +32,7 @@ internal sealed class RepositoryCoordinator(OneDriveRepository repository)
         return new(this, operation.Id);
     }
 
-    internal async Task<RepositoryState> ReadAsync() => (await ReadVersionAsync()).State;
+    internal async Task<RepositoryState> ReadAsync() => ReadState((await ReadVersionAsync()).Bytes);
 
     internal async Task MarkAsync(string id, WriteIntent? intent)
     {
@@ -100,13 +102,26 @@ internal sealed class RepositoryCoordinator(OneDriveRepository repository)
 
     private async Task ChangeAsync(Func<RepositoryState, RepositoryState> change)
     {
+        // The ETag lets the next write reuse this snapshot until another client changes it.
+        var cached = _lastWrite;
+        _lastWrite = null;
         for (var attempt = 0; attempt < 16; attempt++)
         {
-            var (item, state) = await ReadVersionAsync();
-            var result = change(state);
+            var (item, bytes) = cached ?? await ReadVersionAsync();
+            RepositoryState result;
+            try { result = change(ReadState(bytes)); }
+            catch (IOException) when (cached is not null)
+            {
+                cached = null;
+                continue;
+            }
+            cached = null;
             try
             {
-                await repository.Storage.ReplaceAsync(item, RepositoryCatalog.ToJson(result));
+                var payload = RepositoryCatalog.ToJson(result);
+                var written = await repository.Storage.ReplaceAsync(item, payload);
+                if (written.Id == item.Id && written.ETag != item.ETag && OneDriveStorage.IsUsableETag(written.ETag))
+                    _lastWrite = (written, payload);
                 return;
             }
             catch (GraphFailure ex) when (ex.IsConflict)
@@ -117,15 +132,16 @@ internal sealed class RepositoryCoordinator(OneDriveRepository repository)
         throw new IOException("The repository coordination file changed repeatedly. Retry this operation.");
     }
 
-    private async Task<(DriveItem, RepositoryState State)> ReadVersionAsync()
+    private async Task<(DriveItem Item, byte[] Bytes)> ReadVersionAsync()
     {
         var item = await repository.Storage.FindAsync(repository.Metadata.Id, RepositoryCatalog.StateFile)
             ?? throw new IOException("Missing repository coordination file.");
-        var version = await repository.Storage.ReadVersionAsync(item);
-        var state = JsonSerializer.Deserialize<RepositoryState>(version.Bytes, OneDriveStorage.Json)
-            ?? throw new IOException("Invalid repository coordination file.");
-        return (version.Item, state);
+        return await repository.Storage.ReadVersionAsync(item);
     }
+
+    private static RepositoryState ReadState(byte[] bytes) =>
+        JsonSerializer.Deserialize<RepositoryState>(bytes, OneDriveStorage.Json)
+            ?? throw new IOException("Invalid repository coordination file.");
 }
 
 internal sealed class RepositorySession(RepositoryCoordinator coordinator, string id) : IAsyncDisposable

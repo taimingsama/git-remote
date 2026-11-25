@@ -63,24 +63,39 @@ internal sealed class RepositoryCatalog(OneDriveStorage storage)
         if (folder is null || !folder.IsFolder)
             throw new IOException($"Repository '{path}/{address.Name}' does not exist.");
 
-        var marker = await storage.FindAsync(folder.Id, FormatFile)
+        var formatTask = ReadFormatAsync(folder.Id);
+        var headTask = ReadHeadAsync(folder.Id);
+        var metadataTask = storage.FindAsync(folder.Id, "gitremote");
+        var packsTask = storage.FindAsync(folder.Id, "objects/pack");
+        await Task.WhenAll(formatTask, headTask, metadataTask, packsTask);
+
+        var metadata = await metadataTask ?? throw new IOException("Missing repository metadata.");
+        var packs = await packsTask ?? throw new IOException("Missing repository object directory.");
+        if (!metadata.IsFolder || !packs.IsFolder)
+            throw new IOException("Invalid repository layout.");
+        return new(storage, address with { Root = path, Name = folder.Name }, folder, metadata, packs,
+            (await formatTask).ObjectFormat, await headTask);
+    }
+
+    private async Task<RepositoryFormat> ReadFormatAsync(string folderId)
+    {
+        var marker = await storage.FindAsync(folderId, FormatFile)
             ?? throw new IOException("The directory is not an initialized Git OneDrive repository.");
         var format = await ReadJsonAsync<RepositoryFormat>(marker);
         if (format.Version != 1)
             throw new IOException("Unsupported Git OneDrive repository version.");
         _ = Git.HashLength(format.ObjectFormat);
+        return format;
+    }
 
-        var headFile = await storage.FindAsync(folder.Id, "HEAD") ?? throw new IOException("Missing repository HEAD.");
+    private async Task<string> ReadHeadAsync(string folderId)
+    {
+        var headFile = await storage.FindAsync(folderId, "HEAD") ?? throw new IOException("Missing repository HEAD.");
         var (_, bytes) = await storage.ReadVersionAsync(headFile);
         var head = System.Text.Encoding.UTF8.GetString(bytes).TrimEnd('\r', '\n');
         if (!head.StartsWith("ref: refs/heads/", StringComparison.Ordinal) || !PackedRefs.IsRefName(head[5..]))
             throw new IOException("Invalid repository HEAD.");
-
-        var metadata = await storage.FindAsync(folder.Id, "gitremote") ?? throw new IOException("Missing repository metadata.");
-        var packs = await storage.FindAsync(folder.Id, "objects/pack") ?? throw new IOException("Missing repository object directory.");
-        if (!metadata.IsFolder || !packs.IsFolder)
-            throw new IOException("Invalid repository layout.");
-        return new(storage, address with { Root = path, Name = folder.Name }, folder, metadata, packs, format.ObjectFormat, head[5..]);
+        return head[5..];
     }
 
     internal async Task<IReadOnlyList<RepositoryAddress>> ListAsync(string? rootPath)

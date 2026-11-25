@@ -55,8 +55,8 @@ internal sealed class PushService(OneDriveRepository repository, PackStore packs
         return new(id, peeled);
     }
 
-    internal async Task<PushStatus[]> PublishAsync(IReadOnlyList<PushUpdate> changes, PackedRefs advertised,
-        RepositorySession session, bool atomic, bool dryRun)
+    internal async Task<PushStatus[]> PublishAsync(IReadOnlyList<PushUpdate> changes, RepositorySession session,
+        bool atomic, bool dryRun)
     {
         var duplicates = changes.GroupBy(change => change.Name, StringComparer.Ordinal).Where(group => group.Count() > 1)
             .Select(group => group.Key).ToHashSet(StringComparer.Ordinal);
@@ -76,7 +76,8 @@ internal sealed class PushService(OneDriveRepository repository, PackStore packs
             {
                 using var scratch = new Scratch();
                 var known = new List<string>();
-                foreach (var root in advertised.Values.Values.Select(value => value.Id).Distinct())
+                // Exclude only objects reachable from refs read while this session prevents GC from pruning packs.
+                foreach (var root in initial.Refs.Values.Values.Select(value => value.Id).Distinct())
                 {
                     var exists = await git.RunAsync(["cat-file", "-e", root]);
                     if (exists.ExitCode == 0 && (await git.MissingAsync([root])).Count == 0)

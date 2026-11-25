@@ -2,6 +2,8 @@
 bin/
 obj/
 /packages/
+/artifacts/publish/onedrive-prototype/
+/eng/OneDriveClientId.props
 riderModule.iml
 *.DotSettings.user
 /_ReSharper.Caches/

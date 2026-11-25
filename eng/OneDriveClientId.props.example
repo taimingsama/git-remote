@@ -1,0 +1,6 @@
+<Project>
+  <PropertyGroup>
+    <!-- Copy this file to OneDriveClientId.props and enter the Entra application (client) ID. -->
+    <OneDriveClientId />
+  </PropertyGroup>
+</Project>

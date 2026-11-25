@@ -1,0 +1,29 @@
+<Project DefaultTargets="Publish">
+  <Import Project="OneDriveClientId.props" Condition="Exists('OneDriveClientId.props')" />
+
+  <PropertyGroup>
+    <Configuration Condition="'$(Configuration)' == ''">Release</Configuration>
+    <PublishDir Condition="'$(PublishDir)' == ''">$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..', 'artifacts', 'publish', 'onedrive-prototype', '$(Configuration)'))</PublishDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PublishProject Include="../src/GitRemote.OneDrive.Prototype.Cli/GitRemote.OneDrive.Prototype.Cli.csproj" />
+    <PublishProject Include="../src/GitRemote.OneDrive.Prototype/GitRemote.OneDrive.Prototype.csproj" />
+  </ItemGroup>
+
+  <Target Name="Restore">
+    <MSBuild Projects="@(PublishProject)" Targets="Restore" Properties="Configuration=$(Configuration)" />
+  </Target>
+
+  <Target Name="Publish">
+    <Error Condition="'$(NoBuild)' == 'true'"
+           Text="Publishing embeds the configured OneDrive client ID. Run publish without --no-build." />
+    <Error Condition="!$([System.Text.RegularExpressions.Regex]::IsMatch('$(OneDriveClientId)', '\A[0-9A-Fa-f]{8}(-[0-9A-Fa-f]{4}){3}-[0-9A-Fa-f]{12}\z')) Or '$(OneDriveClientId)' == '00000000-0000-0000-0000-000000000000'"
+           Text="Copy eng/OneDriveClientId.props.example to eng/OneDriveClientId.props if needed and set OneDriveClientId to the Entra application (client) ID." />
+    <!-- The projects share dependencies in PublishDir. Publish them sequentially. -->
+    <MSBuild Projects="@(PublishProject)"
+             Targets="Publish"
+             Properties="Configuration=$(Configuration);PublishDir=$(PublishDir);OneDriveClientId=$(OneDriveClientId)"
+             BuildInParallel="false" />
+  </Target>
+</Project>

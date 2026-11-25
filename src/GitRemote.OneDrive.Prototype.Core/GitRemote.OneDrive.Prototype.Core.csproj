@@ -1,4 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="../../eng/OneDriveClientId.props" Condition="Exists('../../eng/OneDriveClientId.props')" />
+
   <PropertyGroup>
     <TargetFramework>net11.0</TargetFramework>
     <RootNamespace>GitRemote.OneDrive.Prototype</RootNamespace>
@@ -7,6 +9,7 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup>
+    <AssemblyMetadata Include="OneDriveClientId" Value="$(OneDriveClientId)" Condition="'$(OneDriveClientId)' != ''" />
     <PackageReference Include="Microsoft.Identity.Client.Extensions.Msal" Version="4.83.1" />
     <InternalsVisibleTo Include="git-onedrive" />
     <InternalsVisibleTo Include="git-remote-onedrive-prototype" />

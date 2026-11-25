@@ -1,3 +1,4 @@
+using System.Reflection;
 using Microsoft.Identity.Client;
 using Microsoft.Identity.Client.Extensions.Msal;
 
@@ -69,8 +70,7 @@ internal sealed class Authentication
             return _application;
         if (!OperatingSystem.IsWindows())
             throw new PlatformNotSupportedException("Interactive OneDrive authentication requires Windows.");
-        if (!Guid.TryParse(Environment.GetEnvironmentVariable("GITREMOTE_PROTOTYPE_CLIENT_ID"), out var id))
-            throw new IOException("Set GITREMOTE_PROTOTYPE_CLIENT_ID to the application registration's client ID.");
+        var id = GetClientId();
 
         var application = PublicClientApplicationBuilder.Create(id.ToString())
             .WithAuthority("https://login.microsoftonline.com/consumers")
@@ -81,5 +81,15 @@ internal sealed class Authentication
         cache.VerifyPersistence();
         cache.RegisterCache(application.UserTokenCache);
         return _application = application;
+    }
+
+    private static Guid GetClientId()
+    {
+        var clientId = typeof(Authentication).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
+            .FirstOrDefault(attribute => attribute.Key == "OneDriveClientId")?.Value;
+        if (!Guid.TryParse(clientId, out var id) || id == Guid.Empty)
+            throw new IOException("Copy eng/OneDriveClientId.props.example to eng/OneDriveClientId.props if needed, set OneDriveClientId to the Entra application (client) ID, and rebuild.");
+
+        return id;
     }
 }

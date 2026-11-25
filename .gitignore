@@ -3,6 +3,7 @@ bin/
 obj/
 /packages/
 riderModule.iml
+*.DotSettings.user
 /_ReSharper.Caches/
 /tests/GitRemote.OneDrive.IntegrationTests/Graph.local.runsettings
 /tests/GitRemote.OneDrive.Prototype.IntegrationTests/Graph.local.runsettings

@@ -1,9 +1,15 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/GitRemote.OneDrive/GitRemote.OneDrive.csproj" />
+  </Folder>
+  <Folder Name="/src/Prototype/">
     <Project Path="src/GitRemote.OneDrive.Prototype/GitRemote.OneDrive.Prototype.csproj" />
+    <Project Path="src/GitRemote.OneDrive.Prototype.Cli/GitRemote.OneDrive.Prototype.Cli.csproj" />
+    <Project Path="src/GitRemote.OneDrive.Prototype.Core/GitRemote.OneDrive.Prototype.Core.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/GitRemote.OneDrive.IntegrationTests/GitRemote.OneDrive.IntegrationTests.csproj" />
+    <Project Path="tests/GitRemote.OneDrive.Prototype.IntegrationTests/GitRemote.OneDrive.Prototype.IntegrationTests.csproj" />
+    <Project Path="tests/GitRemote.OneDrive.Prototype.IntegrationTests/TestHost/GitRemote.OneDrive.Prototype.TestHost.csproj" />
   </Folder>
 </Solution>

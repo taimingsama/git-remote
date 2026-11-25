@@ -1,5 +1,7 @@
 # GitRemote.OneDrive 战略设计
 
+当前原型的命令、原生 pack 布局和维护流程见 [GitRemote.OneDrive 原型](gitremote-onedrive-prototype.md)。本文记录初始战略。
+
 GitRemote.OneDrive 让微软 OneDrive 成为 Git 的远端存储。用户安装 `git-remote-onedrive` 后，可以通过 `onedrive::…` 远端地址使用原生 `git clone`、`git fetch` 和 `git push`。OneDrive 中保存一个标准裸仓库，完整下载后可用 Git 直接克隆和检查。 [Git remote helper 协议](https://git-scm.com/docs/gitremote-helpers) · [Git 仓库布局](https://git-scm.com/docs/gitrepository-layout)
 
 ## 限界上下文与上下文映射

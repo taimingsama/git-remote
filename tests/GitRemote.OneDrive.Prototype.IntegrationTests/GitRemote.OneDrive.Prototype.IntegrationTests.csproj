@@ -1,0 +1,61 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <DefaultItemExcludes>$(DefaultItemExcludes);TestHost/**</DefaultItemExcludes>
+    <PrototypeProject>../../src/GitRemote.OneDrive.Prototype/GitRemote.OneDrive.Prototype.csproj</PrototypeProject>
+    <PrototypeCliProject>../../src/GitRemote.OneDrive.Prototype.Cli/GitRemote.OneDrive.Prototype.Cli.csproj</PrototypeCliProject>
+    <PrototypeTestHostProject>TestHost/GitRemote.OneDrive.Prototype.TestHost.csproj</PrototypeTestHostProject>
+  </PropertyGroup>
+  <PropertyGroup Condition="Exists('Graph.local.runsettings')">
+    <RunSettingsFilePath>$(MSBuildProjectDirectory)/Graph.local.runsettings</RunSettingsFilePath>
+  </PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="$(PrototypeProject)" />
+    <ProjectReference Include="$(PrototypeCliProject)" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="$(PrototypeTestHostProject)" ReferenceOutputAssembly="false" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit.v3" Version="3.2.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" PrivateAssets="all" />
+  </ItemGroup>
+
+  <Target Name="CopyPrototypeHosts" AfterTargets="CopyFilesToOutputDirectory"
+          Condition="'$(DesignTimeBuild)' != 'true'">
+    <MSBuild Projects="$(PrototypeProject)" Targets="GetTargetPath">
+      <Output TaskParameter="TargetOutputs" ItemName="_PrototypeAssembly" />
+    </MSBuild>
+    <MSBuild Projects="$(PrototypeCliProject)" Targets="GetTargetPath">
+      <Output TaskParameter="TargetOutputs" ItemName="_PrototypeCliAssembly" />
+    </MSBuild>
+    <MSBuild Projects="$(PrototypeTestHostProject)" Targets="GetTargetPath">
+      <Output TaskParameter="TargetOutputs" ItemName="_PrototypeTestHostAssembly" />
+    </MSBuild>
+    <PropertyGroup>
+      <_PrototypeHostDirectory>@(_PrototypeAssembly->'%(RootDir)%(Directory)')</_PrototypeHostDirectory>
+      <_PrototypeCliDirectory>@(_PrototypeCliAssembly->'%(RootDir)%(Directory)')</_PrototypeCliDirectory>
+      <_PrototypeTestHostDirectory>@(_PrototypeTestHostAssembly->'%(RootDir)%(Directory)')</_PrototypeTestHostDirectory>
+    </PropertyGroup>
+    <ItemGroup>
+      <_PrototypeHostFiles Include="$(_PrototypeHostDirectory)*" />
+      <_PrototypeCliFiles Include="$(_PrototypeCliDirectory)*" />
+      <_PrototypeTestHostFiles Include="$(_PrototypeTestHostDirectory)*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_PrototypeHostFiles)" DestinationFolder="$(OutDir)ProductionHost"
+          SkipUnchangedFiles="true">
+      <Output TaskParameter="CopiedFiles" ItemName="FileWrites" />
+    </Copy>
+    <Copy SourceFiles="@(_PrototypeCliFiles)" DestinationFolder="$(OutDir)ProductionHost"
+          SkipUnchangedFiles="true">
+      <Output TaskParameter="CopiedFiles" ItemName="FileWrites" />
+    </Copy>
+    <Copy SourceFiles="@(_PrototypeTestHostFiles)" DestinationFolder="$(OutDir)SystemTestHost"
+          SkipUnchangedFiles="true">
+      <Output TaskParameter="CopiedFiles" ItemName="FileWrites" />
+    </Copy>
+  </Target>
+</Project>

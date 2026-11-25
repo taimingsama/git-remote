@@ -1,63 +1,58 @@
 # GitRemote.OneDrive 原型
 
-`GitRemote.OneDrive.Prototype` 生成 `git-remote-onedrive-prototype`。把生成目录放进 `PATH` 后，Git 会为 `onedrive-prototype::<name>.git` 地址启动这个 helper。原型使用个人 OneDrive 根目录中的独立仓库目录，并支持 SHA-1 Git 仓库。
+原型使用 Git for Windows 2.55 和 .NET 11，由两个应用项目和一个共享库组成。
 
-```powershell
-git-remote-onedrive-prototype --init onedrive-prototype::example.git
-git remote add onedrive onedrive-prototype::example.git
-git push onedrive main
-git fetch onedrive
-```
+- GitRemote.OneDrive.Prototype.Cli 生成 git-onedrive.exe，负责登录、仓库管理和 GC 命令。
+- GitRemote.OneDrive.Prototype 生成 git-remote-onedrive-prototype.exe，负责 Git Remote Helper 协议和原生 Git 服务。
+- GitRemote.OneDrive.Prototype.Core 提供共享的认证、Graph 存储、Git 对象、引用发布和维护逻辑。
 
-`HEAD` 默认指向 `refs/heads/main`。Git 负责更新本地的远程跟踪分支。Helper 将对象导入本地对象数据库。
+将两个程序发布到同一个目录，再把该目录加入 PATH。
 
-## 模块
+## 登录与建仓
 
-- `RemoteHelper` 处理 `capabilities`、`list`、`fetch`、`push` 和批量协议响应。它保留向 Git 宣告的推送引用快照，诊断写到 stderr。
-- `PushRequest` 按命令顺序保存原始来源、目标和强制标志。空来源表达删除意图。`PushService` 结合本地提交和已宣告的远端快照，把需要改变引用的意图转换成 `BranchCreate`、`BranchUpdate` 或 `BranchDelete`。无变化的请求直接记录成功。
-- `PushOperation` 收集一批 `BranchOperation`，并拒绝同批次的重复目标。每种分支操作负责自己的验证和执行，强制标志只影响 `BranchUpdate` 的快进检查。
-- `PushService` 逐分支验证，记录无变化和验证失败的分支。`LocalBranch` 检查快进和本地提交完整性。`LocalRepository` 为待推送分支生成一个共享包，只排除双方已具备的完整历史。对象可见后，`RemoteRepository` 条件创建新分支，`RemoteBranch` 条件更新已有分支。随后单独执行删除，并逐分支返回结果。
-- `FetchService` 使用协议给出的目标 Object ID。`LocalRepository` 调用 Git 逐轮发现缺失的可达对象。`RemoteRepository` 从当前清单的原生 `.idx` 找到候选 pack，每导入一个完整 pack 后重新检查本地缺失对象。Fetch 验证目标完整性，并在遇到清单切换时重新加载索引。
-- `Packfile` 管理包的身份、路径、校验和索引读取。`PackManifest` 管理有效包集合，检查重复与冲突。`RemoteRepository` 负责读写清单，并在 Push 遭遇 CAS 冲突时读取最新清单再合并。
-- `GitClient` 封装 Git 原生命令，`OneDriveFileSystem` 封装 Graph 文件操作、分片上传和条件写入。
+在 Microsoft Entra 注册支持个人 Microsoft 账号的公开客户端，启用设备码流程，配置 Microsoft Graph 的委托权限 Files.ReadWrite。将客户端 ID 放入 GITREMOTE_PROTOTYPE_CLIENT_ID，再运行 git onedrive login。Git 操作使用 Windows 加密缓存续期。git onedrive logout 清除本机账号缓存。
 
-## OneDrive 存储与并发
+    $prototypeBin = Join-Path $env:LOCALAPPDATA 'GitRemote.OneDrive/Prototype'
+    dotnet publish src/GitRemote.OneDrive.Prototype/GitRemote.OneDrive.Prototype.csproj -o $prototypeBin
+    dotnet publish src/GitRemote.OneDrive.Prototype.Cli/GitRemote.OneDrive.Prototype.Cli.csproj -o $prototypeBin
+    $env:PATH = "$prototypeBin;$env:PATH"
+    git onedrive login
+    git onedrive config root Dev/Git
+    git onedrive init project
+    git onedrive list
+    git clone onedrive-prototype::Dev/Git/project.git
 
-```text
-repository/
-├── HEAD
-├── metadata/
-│   ├── current-manifest
-│   └── current-refs
-├── manifests/
-│   └── manifest-<version>.json
-├── refs/heads/
-│   └── <version>.ref
-└── objects/pack/
-    ├── pack-<sha1>.pack
-    └── pack-<sha1>.idx
-```
+专用目录默认 GitRepositories。配置通过 OneDrive 同步到其他设备。列表仅列出已初始化的仓库，并读取所有页面。仓库名称可省略 .git，磁盘上仍保存为 project.git。管理命令接受短名称或完整 URL。init 和 url 会输出完整路径，便于跨设备使用。可用 init project --initial-branch develop --object-format sha256 创建采用 SHA-256 的仓库。
 
-清单固定一组不可变的 pack 和索引，记录两个文件各自的 SHA-256。Push 回读校验共享包、按 ETag 发布清单之后，才逐个发布引用。
+## Git 传输
 
-`current-refs` 将完整分支名映射到不可变的分支记录。每次更新先核对目标分支仍处于 `list for-push` 时的版本，并检查分支名冲突，再按当前目录的 ETag 提交这一项变更。若同时修改了其他分支，可以读取新目录后重试本次更新。同一批次允许部分分支成功。
+- 默认地址支持完整历史的 Clone、Fetch 和 Push。git ls-remote、分支、标签、剪枝、镜像、强推、lease、原子推送和 dry-run 沿用 Git 的规则。
+- 地址添加 ?transport=smart 后使用原生 Git 服务，支持浅克隆、深化、部分克隆、按需取回对象、远程归档、签名推送及 Push Options。部分克隆保存带参数的远端地址。Git archive 与签名推送依赖相应的原生 Git 功能。
+- ?transport=stateless 提供 Git v2 无状态读取，支持引用公告、Fetch 和对象信息查询。同一地址的普通 Push 可使用直传。
+- Fast Import / Export 流对任意原生 Git 对象的保真有限，原型的实际对象传输使用原生 pack。
 
-远端清单通过追加 Packfile 推进版本，历史清单和对象文件会保留。旧版 `packed-refs` 仓库支持只读克隆和 Fetch。
+    git clone --depth=1 'onedrive-prototype::Dev/Git/project.git?transport=smart' shallow
+    git clone --filter=blob:none 'onedrive-prototype::Dev/Git/project.git?transport=smart' partial
+
+直接复制静止状态下的 OneDrive 仓库目录可得到原生裸仓库。完整复制 HEAD、config、refs、packed-refs 和 objects，再运行 git fsck --full 和 git clone。原型管理云端写入。
+
+## 并发和 GC
+
+Push 上传不可变的 pack，并在校验后按 pack、索引的顺序发布。packed-refs 是唯一引用发布点，通过 ETag 做条件更新。并发更新同一个引用时检查原预期对象 ID，更新不同引用时可以重新验证并合并。Fetch 按所需对象查询已校验的索引，避免下载无关的 pack。
+
+    git onedrive gc project
+    git onedrive gc project --apply
+    git onedrive gc project --apply --prune=now
+    git onedrive status project
+    git onedrive recover project <operation-id>
+
+GC 默认预览。应用时调用原生 git gc，遵循默认保留期和原生 .mtimes。替代对象先通过 fsck，再在短时独占维护中复核引用和 pack 清单并发布。后续按持久化计划及文件 ID 和 ETag 逐个清理旧文件。
+
+中断后先查看 status。recover 可在同一设备确认原进程已退出后继续。其他设备须先确认该进程已停止，再使用 --owner-stopped。恢复根据记录核对 OneDrive 实际版本，无法确认的写入保持保护。正常操作的令牌和传输 URL 不写入操作日志。
 
 ## 验收
 
-在 Windows 上用 .NET 11 SDK 构建，并运行验收脚本。
+    ./tests/Verify-OneDrivePrototype.ps1
+    ./tests/Verify-OneDrivePrototype.ps1 -Live
 
-```powershell
-dotnet build GitRemote.slnx
-$testHost = 'tests/GitRemote.OneDrive.Prototype.TestHost/bin/Debug/net11.0/GitRemote.OneDrive.Prototype.TestHost.exe'
-./tests/Verify-OneDrivePrototype.ps1 -HelperPath $testHost
-$helper = 'src/GitRemote.OneDrive.Prototype/bin/Debug/net11.0/git-remote-onedrive-prototype.exe'
-./tests/Verify-OneDrivePrototype.ps1 -HelperPath $helper -Live
-```
-
-默认模式使用真正的 Git 命令和模拟 Graph 传输，覆盖首次及增量 Push/Fetch、按需下载、并发引用冲突、强制推送、删除、远端清单切换、损坏的 pack 或索引、缺失对象、上传中断和大文件分片上传。脚本还用原生 Git 对复原的裸仓库执行 `fsck` 和克隆。
-
-验收还模拟清单条件写入冲突，验证 Push 重新读取并合并新增包，以及 Fetch 能在清单切换后找到新发布的候选包。
-
-`-Live` 使用 `GITREMOTE_PROTOTYPE_ACCESS_TOKEN` 或集成测试本地配置中的 `ONEDRIVE_TEST_ACCESS_TOKEN`，在 OneDrive 中创建并清理本次验收专用的临时仓库。
+原型的测试和测试宿主位于 tests/GitRemote.OneDrive.Prototype.IntegrationTests。默认系统测试使用真实 Git 和隔离的本机 Graph 测试服务，覆盖官方行为对照、并发、分片恢复和异常中断。真实 OneDrive 测试读取 ONEDRIVE_TEST_ACCESS_TOKEN，也可在原型测试目录中放置 Graph.local.runsettings 或通过验收脚本的 -Settings 指定已有配置。真实测试在独立临时目录验证条件操作、Push、Clone、GC 和裸仓库原文件。

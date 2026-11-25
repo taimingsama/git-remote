@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <RootNamespace>GitRemote.OneDrive.Prototype</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Identity.Client.Extensions.Msal" Version="4.83.1" />
+    <InternalsVisibleTo Include="git-onedrive" />
+    <InternalsVisibleTo Include="git-remote-onedrive-prototype" />
+    <InternalsVisibleTo Include="GitRemote.OneDrive.Prototype.IntegrationTests" />
+  </ItemGroup>
+</Project>

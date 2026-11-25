@@ -1,5 +1,7 @@
 # GitRemote.OneDrive 会话总结
 
+当前实现及验收入口见 [GitRemote.OneDrive 原型](gitremote-onedrive-prototype.md)。下文记录前期验证。 [2026-11-25 原型实现与验收](<会话文档/2026-11-25 GitRemote.OneDrive 原型实现与验收.md>)
+
 本次会话确定了用微软 OneDrive 存放原生 Git 裸仓库的战略设计，并建立了 .NET 项目骨架和 Microsoft Graph 验证项目。后续的独立原型已在本地和个人 OneDrive 上验证首次推送和克隆，分支发布功能集中在原型的推送流程。 [原型及验收](gitremote-onedrive-prototype.md)
 
 ## 已确定的设计

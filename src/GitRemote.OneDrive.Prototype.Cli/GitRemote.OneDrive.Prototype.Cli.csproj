@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>git-onedrive</AssemblyName>
+    <RootNamespace>GitRemote.OneDrive.Prototype.Cli</RootNamespace>
+    <TargetFramework>net11.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../GitRemote.OneDrive.Prototype.Core/GitRemote.OneDrive.Prototype.Core.csproj" />
+    <InternalsVisibleTo Include="GitRemote.OneDrive.Prototype.TestHost" />
+  </ItemGroup>
+</Project>
